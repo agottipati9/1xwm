@@ -1,0 +1,10 @@
+torch==2.8.0+cu128
+torchvision==0.23.0+cu128
+huggingface-hub
+matplotlib
+numpy
+opencv-python
+pillow
+scikit-learn
+timm
+tqdm
