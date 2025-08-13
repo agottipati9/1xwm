@@ -27,20 +27,25 @@ def load_descriptor_batches(descs_glob: str):
 
 def ensure_no_cls(descs: torch.Tensor, n_hw: Tuple[int, int]):
     """
-    Ensure we drop CLS if present.
+    Ensure we drop CLS and registers if present.
     descs: (B,1,T,D)
     n_hw: (n_h, n_w)
     Returns descs_no_cls: (B,1,T_no_cls,D)
     """
+    n_extra = 5 # 1 CLS + 4 Registers
     B, one, T, D = descs.shape
     n_h, n_w = n_hw
     T_expected = n_h * n_w
     if T == T_expected:
         return descs
     elif T == T_expected + 1:
+        print('Forgot to remove CLS token from descriptors.')
         return descs[:, :, 1:, :]
+    elif T == T_expected + n_extra:
+        print('Forgot to remove CLS token and registers from descriptors.')
+        return descs[:, :, n_extra:, :]
     else:
-        raise ValueError(f"Unexpected token count T={T} vs expected {T_expected} (or {T_expected}+1 with CLS).")
+        raise ValueError(f"Unexpected token count T={T} vs expected {T_expected} (or {T_expected}+5 with CLS and registers).")
 
 
 def fit_pca_global(descs_glob: str, batch_chunk: int = 16384) -> Tuple[IncrementalPCA, float, np.ndarray, np.ndarray]:

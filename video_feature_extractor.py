@@ -13,16 +13,6 @@ import time
 def frame_to_tensor(img_bgr, load_size, mean, std):
     # Convert BGR (OpenCV) to RGB PIL, resize, normalize like extractor.preprocess
     pil_image = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-    # if load_size is not None:
-
-    #     pil = pil.resize((load_size, load_size), Image.LANCZOS) if isinstance(load_size, int) else pil.resize(load_size, Image.LANCZOS)
-    # arr = np.asarray(pil).astype("float32") / 255.0
-    # tensor = torch.from_numpy(arr).permute(2, 0, 1)  # C,H,W
-    # # Normalize
-    # mean_t = torch.tensor(mean)[:, None, None]
-    # std_t = torch.tensor(std)[:, None, None]
-    # tensor = (tensor - mean_t) / std_t
-    # return tensor, pil.size  # (W,H)
     if load_size is not None:
         pil_image = transforms.Resize(load_size, interpolation=transforms.InterpolationMode.LANCZOS)(pil_image)
     prep = transforms.Compose([
@@ -65,21 +55,20 @@ def save_batch(descriptors: torch.Tensor,
         json.dump(meta, f, indent=2)
 
 def main():
-    parser = argparse.ArgumentParser(description="Extract DINO descriptors from a video.")
+    parser = argparse.ArgumentParser(description="Extract DINOv2 descriptors from a video.")
     parser.add_argument("--video_path", required=True, type=str)
     parser.add_argument("--output_dir", required=True, type=str)
-    parser.add_argument("--model_type", default="dino_vitb8", type=str)
-    parser.add_argument("--stride", default=4, type=int)
+    parser.add_argument("--model_type", default="dinov2_vitl14_reg", type=str)
+    parser.add_argument("--stride", default=7, type=int)
     parser.add_argument("--load_size", default=224, type=int, help="Resize frames to square load_size. Use same as training size for consistency.")
     parser.add_argument("--facet", default="token", type=str, choices=["key","query","value","token"])
-    parser.add_argument("--layer", default=11, type=int)
+    parser.add_argument("--layer", default=23, type=int)
     parser.add_argument("--bin", action="store_true")
     parser.add_argument("--include_cls", action="store_true", help="Include CLS token in descriptors (ignored if --bin).")
     parser.add_argument("--frame_stride", default=1, type=int, help="Sample every Nth frame.")
     parser.add_argument("--max_frames", default=-1, type=int, help="Limit number of frames (-1 for all).")
     parser.add_argument("--batch_size", default=16, type=int)
     parser.add_argument("--prefix", default="descs", type=str, help="Output file prefix.")
-    parser.add_argument("--saliency", action="store_true", help="Also extract saliency maps (only dino_vits8).")
     parser.add_argument("--fp16", action="store_true", help="Use half precision autocast.")
     args = parser.parse_args()
 
@@ -138,17 +127,6 @@ def main():
 
                     save_batch(descs, batch_frames, batch_indices, extractor.num_patches, batch_frame_sizes, out_dir, args.prefix, batch_id)
 
-                    if args.saliency:
-                        sal = extractor.extract_saliency_maps(imgs)  # B x (T_no_cls)
-                        torch.save(
-                            {
-                                "saliency": sal.cpu(),
-                                "frame_indices": batch_indices,
-                                "n_patches_hw": extractor.num_patches
-                            },
-                            out_dir / f"{args.prefix}_saliency_batch{batch_id:06d}.pt"
-                        )
-
                 batch_id += 1
                 batch_tensors.clear()
                 batch_indices.clear()
@@ -172,16 +150,7 @@ def main():
                     include_cls=args.include_cls
                 )
                 save_batch(descs, batch_frames, batch_indices, extractor.num_patches, batch_frame_sizes, out_dir, args.prefix, batch_id)
-                if args.saliency:
-                    sal = extractor.extract_saliency_maps(imgs)
-                    torch.save(
-                        {
-                            "saliency": sal.cpu(),
-                            "frame_indices": batch_indices,
-                            "n_patches_hw": extractor.num_patches
-                        },
-                        out_dir / f"{args.prefix}_saliency_batch{batch_id:06d}.pt"
-                    )
+
     cap.release()
     print(f"Done. Sampled frames: {sampled_count}. Batches saved: {batch_id + (1 if batch_tensors else 0)}")
 
